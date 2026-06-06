@@ -23,6 +23,13 @@ const {
 const JWT_LIFETIME_SECONDS = 3600;
 const TOKEN_SCOPES = ["signature", "impersonation"];
 
+type DocusignErrorPayload = {
+  error?: string;
+  errorCode?: string;
+  error_description?: string;
+  message?: string;
+};
+
 /** Read the RSA private key PEM from disk. */
 function getPrivateKey(): Buffer {
   if (!DOCUSIGN_RSA_PRIVATE_KEY_PATH) {
@@ -64,6 +71,41 @@ async function getAccessToken(apiClient: any): Promise<string> {
   return accessToken;
 }
 
+function extractDocusignError(err: unknown): {
+  code: string | null;
+  message: string;
+} {
+  const fallbackMessage =
+    err instanceof Error ? err.message : "Unknown DocuSign error";
+
+  const responseBody =
+    (err as { response?: { body?: unknown; data?: unknown; text?: unknown } })
+      ?.response?.body ??
+    (err as { response?: { body?: unknown; data?: unknown; text?: unknown } })
+      ?.response?.data ??
+    (err as { response?: { body?: unknown; data?: unknown; text?: unknown } })
+      ?.response?.text ??
+    null;
+
+  let payload: DocusignErrorPayload | null = null;
+  if (typeof responseBody === "string") {
+    try {
+      payload = JSON.parse(responseBody) as DocusignErrorPayload;
+    } catch {
+      payload = null;
+    }
+  } else if (responseBody && typeof responseBody === "object") {
+    payload = responseBody as DocusignErrorPayload;
+  }
+
+  const code =
+    payload?.errorCode ?? payload?.error ?? (err as { code?: string })?.code ?? null;
+  const message =
+    payload?.message ?? payload?.error_description ?? fallbackMessage;
+
+  return { code, message };
+}
+
 /** Build an authenticated ApiClient pointed at the eSignature REST API. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getApiClient(): Promise<any> {
@@ -72,6 +114,25 @@ async function getApiClient(): Promise<any> {
   const token = await getAccessToken(apiClient);
   apiClient.addDefaultHeader("Authorization", `Bearer ${token}`);
   return apiClient;
+}
+
+export async function verifyDocusignJwtAuth(): Promise<{
+  authenticated: boolean;
+  code?: string;
+  message?: string;
+}> {
+  try {
+    const apiClient = new docusign.ApiClient();
+    await getAccessToken(apiClient);
+    return { authenticated: true };
+  } catch (err: unknown) {
+    const parsed = extractDocusignError(err);
+    return {
+      authenticated: false,
+      code: parsed.code ?? undefined,
+      message: parsed.message,
+    };
+  }
 }
 
 /**

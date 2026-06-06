@@ -1,12 +1,12 @@
 :root {
   --indigo: #22c55e;
   --indigo-dark: #16a34a;
-  --ink: #e5e7eb;
-  --muted: #9ca3af;
-  --border: #334155;
-  --bg: #020617;
-  --panel: #0f172a;
-  --panel-soft: #111827;
+  --ink: #1a1a2e;
+  --muted: #6b7280;
+  --border: #e5e7eb;
+  --bg: #f3f4f6;
+  --panel: #ffffff;
+  --panel-soft: #ffffff;
 }
 
 * {
@@ -20,7 +20,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif;
   color: var(--ink);
-  background: radial-gradient(circle at top, #0b1225 0%, var(--bg) 45%);
+  background: var(--bg);
 }
 
 .page {
@@ -38,7 +38,7 @@ body {
   padding: 40px;
   max-width: 480px;
   width: 100%;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
 }
 
 .card h1 {
@@ -67,11 +67,90 @@ body {
   background: var(--indigo-dark);
 }
 
+.primary-btn:disabled {
+  background: #9ca3af;
+  color: #f9fafb;
+  cursor: not-allowed;
+}
+
+.docusign-auth-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.auth-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  border: 1px solid transparent;
+}
+
+.auth-pill-on {
+  color: #166534;
+  border-color: rgba(34, 197, 94, 0.45);
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.auth-pill-off {
+  color: #b91c1c;
+  border-color: rgba(244, 63, 94, 0.45);
+  background: rgba(244, 63, 94, 0.08);
+}
+
+.auth-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.secondary-btn:hover {
+  border-color: var(--indigo);
+}
+
+.secondary-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-message {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.auth-hint {
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 /* ---------- Modal ---------- */
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(2, 6, 23, 0.8);
+  background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -81,7 +160,6 @@ body {
 
 .modal {
   background: var(--panel);
-  border: 1px solid var(--border);
   border-radius: 16px;
   width: 100%;
   max-width: 720px;
@@ -145,6 +223,14 @@ body {
   background: var(--panel-soft);
 }
 
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- Status states ---------- */
 .status-msg {
   text-align: center;
@@ -161,8 +247,8 @@ body {
   height: 56px;
   margin: 0 auto 12px;
   border-radius: 50%;
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: #dcfce7;
+  color: #16a34a;
   font-size: 2rem;
   display: flex;
   align-items: center;
@@ -170,7 +256,7 @@ body {
 }
 
 .status-msg.error p {
-  color: #f87171;
+  color: #dc2626;
 }
 
 .spinner {

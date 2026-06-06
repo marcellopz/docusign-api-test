@@ -48,8 +48,41 @@ export default function SignContractModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [consentUrl, setConsentUrl] = useState<string | null>(null);
+  const [checkingAuth, setCheckingAuth] = useState(false);
   const agreementRef = useRef<HTMLDivElement>(null);
   const signingRef = useRef<DocuSignSigning | null>(null);
+
+  const checkDocusignAuth = useCallback(async () => {
+    setCheckingAuth(true);
+    try {
+      const res = await fetch("/api/docusign/auth-status");
+      const data = (await res.json().catch(() => ({}))) as {
+        authenticated?: boolean;
+        message?: string;
+        consentUrl?: string | null;
+      };
+
+      const authed = Boolean(data.authenticated);
+      setIsAuthenticated(authed);
+      setAuthMessage(
+        authed
+          ? "Connected and ready to sign."
+          : data.message ?? "Not connected to DocuSign yet."
+      );
+      setConsentUrl(authed ? null : data.consentUrl ?? null);
+    } catch {
+      setIsAuthenticated(false);
+      setAuthMessage("Unable to verify DocuSign connection.");
+      setConsentUrl(null);
+    } finally {
+      setAuthChecked(true);
+      setCheckingAuth(false);
+    }
+  }, []);
 
   const startSigning = useCallback(async () => {
     setStatus("creating");
@@ -127,6 +160,10 @@ export default function SignContractModal() {
     }
   }, []);
 
+  useEffect(() => {
+    void checkDocusignAuth();
+  }, [checkDocusignAuth]);
+
   // Clean up the DocuSign mount when the modal closes.
   useEffect(() => {
     if (!open && agreementRef.current) {
@@ -143,7 +180,47 @@ export default function SignContractModal() {
 
   return (
     <>
-      <button className="primary-btn" onClick={() => setOpen(true)}>
+      <div className="docusign-auth-row">
+        <div
+          className={`auth-pill ${
+            authChecked && isAuthenticated ? "auth-pill-on" : "auth-pill-off"
+          }`}
+        >
+          <span className="auth-dot" />
+          {authChecked
+            ? isAuthenticated
+              ? "DocuSign Connected"
+              : "DocuSign Not Connected"
+            : "Checking DocuSign..."}
+        </div>
+
+        <button
+          className="secondary-btn"
+          onClick={() => void checkDocusignAuth()}
+          disabled={checkingAuth}
+        >
+          {checkingAuth ? "Checking..." : "Check DocuSign Login"}
+        </button>
+
+        {!isAuthenticated && consentUrl && (
+          <a
+            className="secondary-btn"
+            href={consentUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Connect DocuSign
+          </a>
+        )}
+      </div>
+      <p className="auth-message">{authMessage ?? " "}</p>
+
+      <button
+        className="primary-btn"
+        onClick={() => setOpen(true)}
+        disabled={!isAuthenticated || checkingAuth}
+        title={isAuthenticated ? "Review and sign" : "Connect to DocuSign first"}
+      >
         Review &amp; Sign Contract
       </button>
 
@@ -188,9 +265,12 @@ export default function SignContractModal() {
                       Term: 12 months from the effective date. Time is real.
                     </li>
                   </ol>
-                  <button className="primary-btn" onClick={startSigning}>
-                    Sign Document
-                  </button>
+                  {!isAuthenticated && (
+                    <p className="auth-hint">
+                      Connect to DocuSign first. The sign button unlocks once
+                      authentication is confirmed.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -237,12 +317,34 @@ export default function SignContractModal() {
               {status === "error" && (
                 <div className="status-msg error">
                   <p>{error ?? "An error occurred. Bold choice."}</p>
-                  <button className="primary-btn" onClick={startSigning}>
+                  <button
+                    className="primary-btn"
+                    onClick={startSigning}
+                    disabled={!isAuthenticated || checkingAuth}
+                  >
                     Try again
                   </button>
                 </div>
               )}
             </div>
+
+            {status === "idle" && (
+              <div className="modal-footer">
+                <button className="secondary-btn" onClick={closeModal}>
+                  Cancel
+                </button>
+                <button
+                  className="primary-btn"
+                  onClick={startSigning}
+                  disabled={!isAuthenticated || checkingAuth}
+                  title={
+                    isAuthenticated ? "Start signing" : "Connect to DocuSign first"
+                  }
+                >
+                  Agree &amp; Confirm
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
