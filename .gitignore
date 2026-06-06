@@ -1,5 +1,6 @@
 node_modules
 .next
 .env.local
+private.key
 *.log
 .DS_Store

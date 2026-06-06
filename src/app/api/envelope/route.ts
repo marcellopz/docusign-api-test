@@ -5,6 +5,71 @@ import {
   type SignerInfo,
 } from "@/lib/docusign";
 
+function parseMaybeJson(value: unknown): unknown {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+}
+
+function getDocusignError(err: unknown): {
+  status: number;
+  message: string;
+  code: string | null;
+  detail: unknown;
+} {
+  const fallbackMessage =
+    err instanceof Error ? err.message : "Unknown DocuSign error";
+  const e = err as {
+    status?: number;
+    statusCode?: number;
+    response?: {
+      status?: number;
+      statusCode?: number;
+      body?: unknown;
+      text?: unknown;
+      data?: unknown;
+    };
+    body?: unknown;
+  };
+
+  const status =
+    e.response?.status ??
+    e.response?.statusCode ??
+    e.status ??
+    e.statusCode ??
+    500;
+  const rawDetail =
+    e.response?.body ?? e.response?.data ?? e.response?.text ?? e.body ?? null;
+  const detail = parseMaybeJson(rawDetail);
+
+  const detailObj =
+    detail && typeof detail === "object"
+      ? (detail as Record<string, unknown>)
+      : null;
+  const code =
+    typeof detailObj?.errorCode === "string"
+      ? detailObj.errorCode
+      : typeof detailObj?.error === "string"
+      ? detailObj.error
+      : null;
+  const messageFromDetail =
+    typeof detailObj?.message === "string"
+      ? detailObj.message
+      : typeof detailObj?.error_description === "string"
+      ? detailObj.error_description
+      : null;
+
+  return {
+    status,
+    code,
+    message: messageFromDetail ?? fallbackMessage,
+    detail,
+  };
+}
+
 /**
  * POST /api/envelope
  * Body: { email, name }
@@ -45,15 +110,17 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ envelopeId, signingUrl });
   } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Unknown DocuSign error";
-    // DocuSign SDK errors often carry detail on err.response.body
-    const detail =
-      (err as { response?: { body?: unknown } })?.response?.body ?? null;
-    console.error("[/api/envelope] error:", message, detail);
+    const parsed = getDocusignError(err);
+    console.error(
+      "[/api/envelope] DocuSign error:",
+      `status=${parsed.status}`,
+      `code=${parsed.code ?? "unknown"}`,
+      `message=${parsed.message}`,
+      parsed.detail
+    );
     return NextResponse.json(
-      { error: message, detail },
-      { status: 500 }
+      { error: parsed.message, code: parsed.code, detail: parsed.detail },
+      { status: parsed.status }
     );
   }
 }

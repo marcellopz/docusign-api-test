@@ -4,6 +4,7 @@ A minimal Next.js (App Router) app that lets a user **review a contract in a pop
 and sign it inline** using DocuSign's **embedded signing with focused view**.
 The user is never redirected to docusign.com — signing happens in a `<div>` inside
 your modal, and completion is handled via a JavaScript `sessionEnd` event.
+It is all very efficient and only mildly dramatic.
 
 ## How it works
 
@@ -37,6 +38,7 @@ Key files:
    ```bash
    npm install
    ```
+   This part is traditionally uneventful.
 
 2. **Create a DocuSign developer account** at https://developers.docusign.com
    and an **integration key** (Apps and Keys). For JWT auth:
@@ -44,6 +46,7 @@ Key files:
    - Note your **API Account ID** and **API Username (User ID)**.
    - Under the integration key, the redirect URI for one-time consent can be
      anything you control (e.g. `http://localhost:3000`).
+   - Try not to swap Account ID and User ID unless you enjoy debugging 400 errors.
 
 3. **Configure env vars**
    ```bash
@@ -51,6 +54,7 @@ Key files:
    ```
    Fill in every value. The `NEXT_PUBLIC_*` ones reach the browser; the rest stay
    server-side. Use the **demo** values (`-d` hosts) until you go live.
+   Keep your private key in `private.key` and set `DOCUSIGN_RSA_PRIVATE_KEY_PATH=private.key`.
 
 4. **Grant one-time JWT consent.** The first call will fail with `consent_required`
    until you approve impersonation once. Open this URL (built by `getConsentUrl`
@@ -61,13 +65,14 @@ Key files:
      &client_id=YOUR_INTEGRATION_KEY
      &redirect_uri=http://localhost:3000
    ```
+   If you skip this, the API will politely decline your ambition.
 
 5. **Run it**
    ```bash
    npm run dev
    ```
    Open http://localhost:3000, click **Review & Sign Contract**, then **Sign
-   Document**.
+   Document**. Try to remain calm during the loading spinner.
 
 ## Customizing the UI
 
@@ -83,7 +88,7 @@ style: {
 You also control the **container div** size via CSS (`.agreement-container`), and
 account-level **brand** (logo + theme colors) is configured in the DocuSign admin
 console under Brands. You cannot apply arbitrary CSS to the document/signing-field
-area itself — DocuSign renders that for compliance reasons.
+area itself — DocuSign renders that for compliance reasons, not personal reasons.
 
 ## Going to production
 
@@ -95,4 +100,4 @@ Swap every `-d`/demo value for production:
 - `NEXT_PUBLIC_APP_ORIGIN` → your real HTTPS origin (no trailing slash)
 
 Production embedding **requires HTTPS** on your site, and your integration key
-must pass DocuSign's Go-Live review.
+must pass DocuSign's Go-Live review. Compliance remains undefeated.

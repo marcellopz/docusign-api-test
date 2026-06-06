@@ -1,4 +1,6 @@
 import docusign from "docusign-esign";
+import fs from "node:fs";
+import path from "node:path";
 
 /**
  * Server-side DocuSign helper.
@@ -15,17 +17,25 @@ const {
   DOCUSIGN_BASE_PATH,
   DOCUSIGN_ACCOUNT_ID,
   DOCUSIGN_OAUTH_HOST,
-  DOCUSIGN_RSA_PRIVATE_KEY,
+  DOCUSIGN_RSA_PRIVATE_KEY_PATH,
 } = process.env;
 
 const JWT_LIFETIME_SECONDS = 3600;
 const TOKEN_SCOPES = ["signature", "impersonation"];
 
-/** Decode the PEM key, restoring real newlines if stored with literal \n. */
+/** Read the RSA private key PEM from disk. */
 function getPrivateKey(): Buffer {
-  const raw = DOCUSIGN_RSA_PRIVATE_KEY ?? "";
-  const pem = raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw;
-  return Buffer.from(pem, "utf8");
+  if (!DOCUSIGN_RSA_PRIVATE_KEY_PATH) {
+    throw new Error(
+      "Missing DOCUSIGN_RSA_PRIVATE_KEY_PATH environment variable"
+    );
+  }
+
+  const keyPath = path.isAbsolute(DOCUSIGN_RSA_PRIVATE_KEY_PATH)
+    ? DOCUSIGN_RSA_PRIVATE_KEY_PATH
+    : path.resolve(process.cwd(), DOCUSIGN_RSA_PRIVATE_KEY_PATH);
+
+  return fs.readFileSync(keyPath);
 }
 
 /** Cache the access token in module scope so we don't mint one per request. */

@@ -173,11 +173,12 @@ export default function SignContractModal() {
                   <p>
                     This Agreement is entered into between Acme Inc.
                     (&quot;Company&quot;) and you (&quot;Client&quot;). By
-                    signing, you agree to the terms below.
+                    signing, you agree to the terms below. Excitement is
+                    optional.
                   </p>
                   <ol>
                     <li>Scope of services as described in Exhibit A.</li>
-                    <li>Payment terms: net 30 days.</li>
+                    <li>Payment terms: net 30 days. Predictably.</li>
                     <li>Term: 12 months from the effective date.</li>
                   </ol>
                   <button className="primary-btn" onClick={startSigning}>
@@ -191,8 +192,8 @@ export default function SignContractModal() {
                   <div className="spinner" />
                   <p>
                     {status === "creating"
-                      ? "Preparing your document…"
-                      : "Loading signing experience…"}
+                      ? "Preparing your document. This is the thrilling part."
+                      : "Loading signing experience. Please contain excitement."}
                   </p>
                 </div>
               )}
@@ -209,7 +210,7 @@ export default function SignContractModal() {
               {status === "complete" && (
                 <div className="status-msg success">
                   <div className="checkmark">✓</div>
-                  <h3>Signed successfully!</h3>
+                  <h3>Signed successfully.</h3>
                   <p>Your agreement has been completed and recorded.</p>
                   <button className="primary-btn" onClick={closeModal}>
                     Done
@@ -219,7 +220,7 @@ export default function SignContractModal() {
 
               {status === "declined" && (
                 <div className="status-msg">
-                  <p>You declined to sign the document.</p>
+                  <p>You declined to sign the document. Noted.</p>
                   <button className="primary-btn" onClick={closeModal}>
                     Close
                   </button>
@@ -228,7 +229,7 @@ export default function SignContractModal() {
 
               {status === "error" && (
                 <div className="status-msg error">
-                  <p>{error ?? "An error occurred."}</p>
+                  <p>{error ?? "An error occurred. Bold choice."}</p>
                   <button className="primary-btn" onClick={startSigning}>
                     Try again
                   </button>
