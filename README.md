@@ -54,7 +54,7 @@ Key files:
    ```
    Fill in every value. The `NEXT_PUBLIC_*` ones reach the browser; the rest stay
    server-side. Use the **demo** values (`-d` hosts) until you go live.
-   Keep your private key in `private.key` and set `DOCUSIGN_RSA_PRIVATE_KEY_PATH=private.key`.
+   Set `DOCUSIGN_RSA_PRIVATE_KEY` to your full PEM using `\n` line breaks.
 
 4. **Grant one-time JWT consent.** The first call will fail with `consent_required`
    until you approve impersonation once. Open this URL (built by `getConsentUrl`

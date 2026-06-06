@@ -17,6 +17,7 @@ const {
   DOCUSIGN_BASE_PATH,
   DOCUSIGN_ACCOUNT_ID,
   DOCUSIGN_OAUTH_HOST,
+  DOCUSIGN_RSA_PRIVATE_KEY,
   DOCUSIGN_RSA_PRIVATE_KEY_PATH,
 } = process.env;
 
@@ -32,9 +33,16 @@ type DocusignErrorPayload = {
 
 /** Read the RSA private key PEM from disk. */
 function getPrivateKey(): Buffer {
+  if (DOCUSIGN_RSA_PRIVATE_KEY) {
+    const pem = DOCUSIGN_RSA_PRIVATE_KEY.includes("\\n")
+      ? DOCUSIGN_RSA_PRIVATE_KEY.replace(/\\n/g, "\n")
+      : DOCUSIGN_RSA_PRIVATE_KEY;
+    return Buffer.from(pem, "utf8");
+  }
+
   if (!DOCUSIGN_RSA_PRIVATE_KEY_PATH) {
     throw new Error(
-      "Missing DOCUSIGN_RSA_PRIVATE_KEY_PATH environment variable"
+      "Missing DOCUSIGN_RSA_PRIVATE_KEY or DOCUSIGN_RSA_PRIVATE_KEY_PATH environment variable"
     );
   }
 
