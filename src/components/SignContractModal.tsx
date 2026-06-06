@@ -48,6 +48,8 @@ export default function SignContractModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [signerName, setSignerName] = useState("Test Signer");
+  const [signerEmail, setSignerEmail] = useState("test.signer@example.com");
   const [authChecked, setAuthChecked] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authMessage, setAuthMessage] = useState<string | null>(null);
@@ -55,6 +57,14 @@ export default function SignContractModal() {
   const [checkingAuth, setCheckingAuth] = useState(false);
   const agreementRef = useRef<HTMLDivElement>(null);
   const signingRef = useRef<DocuSignSigning | null>(null);
+  const trimmedName = signerName.trim();
+  const trimmedEmail = signerEmail.trim();
+  const hasValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+  const canSign =
+    isAuthenticated &&
+    !checkingAuth &&
+    trimmedName.length > 0 &&
+    hasValidEmail;
 
   const checkDocusignAuth = useCallback(async () => {
     setCheckingAuth(true);
@@ -85,6 +95,12 @@ export default function SignContractModal() {
   }, []);
 
   const startSigning = useCallback(async () => {
+    if (!trimmedName || !hasValidEmail) {
+      setStatus("idle");
+      setError("Please enter a valid name and email before signing.");
+      return;
+    }
+
     setStatus("creating");
     setError(null);
     try {
@@ -93,8 +109,8 @@ export default function SignContractModal() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email: "test.signer@example.com",
-          name: "Test Signer",
+          email: trimmedEmail,
+          name: trimmedName,
         }),
       });
       if (!res.ok) {
@@ -158,7 +174,7 @@ export default function SignContractModal() {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, []);
+  }, [hasValidEmail, trimmedEmail, trimmedName]);
 
   useEffect(() => {
     void checkDocusignAuth();
@@ -247,6 +263,30 @@ export default function SignContractModal() {
               {/* idle: show contract preview + sign CTA */}
               {status === "idle" && (
                 <div className="contract-preview">
+                  <div className="signer-fields">
+                    <label className="form-field">
+                      <span>Name</span>
+                      <input
+                        className="modal-input"
+                        type="text"
+                        value={signerName}
+                        onChange={(e) => setSignerName(e.target.value)}
+                        placeholder="Jane Doe"
+                        autoComplete="name"
+                      />
+                    </label>
+                    <label className="form-field">
+                      <span>Email</span>
+                      <input
+                        className="modal-input"
+                        type="email"
+                        value={signerEmail}
+                        onChange={(e) => setSignerEmail(e.target.value)}
+                        placeholder="jane@example.com"
+                        autoComplete="email"
+                      />
+                    </label>
+                  </div>
                   <p>
                     This Agreement is entered into between Acme Inc.
                     (&quot;Company&quot;) and you (&quot;Client&quot;). By
@@ -271,6 +311,12 @@ export default function SignContractModal() {
                       authentication is confirmed.
                     </p>
                   )}
+                  {!hasValidEmail && (
+                    <p className="auth-hint">
+                      Please enter a valid email to continue.
+                    </p>
+                  )}
+                  {error && <p className="form-error">{error}</p>}
                 </div>
               )}
 
@@ -320,7 +366,7 @@ export default function SignContractModal() {
                   <button
                     className="primary-btn"
                     onClick={startSigning}
-                    disabled={!isAuthenticated || checkingAuth}
+                    disabled={!canSign}
                   >
                     Try again
                   </button>
@@ -336,9 +382,11 @@ export default function SignContractModal() {
                 <button
                   className="primary-btn"
                   onClick={startSigning}
-                  disabled={!isAuthenticated || checkingAuth}
+                  disabled={!canSign}
                   title={
-                    isAuthenticated ? "Start signing" : "Connect to DocuSign first"
+                    isAuthenticated
+                      ? "Enter name/email to start signing"
+                      : "Connect to DocuSign first"
                   }
                 >
                   Agree &amp; Confirm

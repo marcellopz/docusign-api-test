@@ -211,6 +211,42 @@ body {
   color: var(--ink);
 }
 
+.signer-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.modal-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  color: var(--ink);
+  background: #fff;
+}
+
+.modal-input:focus {
+  outline: 2px solid rgba(34, 197, 94, 0.2);
+  border-color: var(--indigo);
+}
+
+.form-error {
+  margin-top: 10px;
+  color: #dc2626;
+  font-size: 0.9rem;
+}
+
 .contract-preview .primary-btn {
   margin-top: 16px;
 }
