@@ -107,12 +107,14 @@ export async function createEnvelope(signer: SignerInfo): Promise<string> {
   const html = `
     <html><body style="font-family: Arial, sans-serif; padding: 40px;">
       <h2>Service Agreement</h2>
+      <p><em>A serious document with occasional personality.</em></p>
       <p>This Agreement is entered into between Acme Inc. ("Company") and the
       undersigned ("Client"). By signing below, the Client agrees to the terms
-      and conditions set forth in this document.</p>
-      <p>1. Scope of services as described in Exhibit A.</p>
-      <p>2. Payment terms: net 30 days.</p>
-      <p>3. Term: 12 months from the effective date.</p>
+      and conditions set forth in this document. This is legally binding, even if
+      we are all trying to stay emotionally calm.</p>
+      <p>1. Scope of services as described in Exhibit A (the useful part).</p>
+      <p>2. Payment terms: net 30 days, as foretold by accounting.</p>
+      <p>3. Term: 12 months from the effective date. Time is real.</p>
       <br /><br />
       <p>Signature: <span style="color:white;">/sign_here/</span></p>
       <p>Date: /date_signed/</p>

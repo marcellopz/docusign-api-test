@@ -84,7 +84,7 @@ export default function SignContractModal() {
         style: {
           branding: {
             primaryButton: {
-              backgroundColor: "#4f46e5",
+              backgroundColor: "#16a34a",
               color: "#ffffff",
             },
           },
@@ -173,13 +173,20 @@ export default function SignContractModal() {
                   <p>
                     This Agreement is entered into between Acme Inc.
                     (&quot;Company&quot;) and you (&quot;Client&quot;). By
-                    signing, you agree to the terms below. Excitement is
-                    optional.
+                    signing, you agree to the terms below. This remains legally
+                    binding, even with a sense of humor.
                   </p>
                   <ol>
-                    <li>Scope of services as described in Exhibit A.</li>
-                    <li>Payment terms: net 30 days. Predictably.</li>
-                    <li>Term: 12 months from the effective date.</li>
+                    <li>
+                      Scope of services as described in Exhibit A (the useful
+                      part).
+                    </li>
+                    <li>
+                      Payment terms: net 30 days, as foretold by accounting.
+                    </li>
+                    <li>
+                      Term: 12 months from the effective date. Time is real.
+                    </li>
                   </ol>
                   <button className="primary-btn" onClick={startSigning}>
                     Sign Document
