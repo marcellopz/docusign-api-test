@@ -8,6 +8,7 @@ import type {
 import { AuthControls } from "@/components/sign-contract-modal/AuthControls";
 import { DisplayMethodStep } from "@/components/sign-contract-modal/DisplayMethodStep";
 import { ApproachStep } from "@/components/sign-contract-modal/ApproachStep";
+import { ClickwrapStep } from "@/components/sign-contract-modal/ClickwrapStep";
 import { ContractStep } from "@/components/sign-contract-modal/ContractStep";
 import { ModalFooter } from "@/components/sign-contract-modal/ModalFooter";
 import {
@@ -60,6 +61,7 @@ export default function SignContractModal() {
     useState<ContentDisplayMethod | null>(null);
   const [approach, setApproach] = useState<SigningApproach | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [completeMessage, setCompleteMessage] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("Test Signer");
   const [signerEmail, setSignerEmail] = useState("test.signer@example.com");
   const [authChecked, setAuthChecked] = useState(false);
@@ -205,6 +207,46 @@ export default function SignContractModal() {
     }
   }, [approach, displayMethod, hasValidEmail, trimmedEmail, trimmedName]);
 
+  const startClickwrapCustom = useCallback(async () => {
+    if (!trimmedName || !hasValidEmail) {
+      setStatus("idle");
+      setError("Please enter a valid name and email before accepting.");
+      return;
+    }
+
+    setStatus("creating");
+    setError(null);
+    try {
+      const res = await fetch("/api/clickwrap/agreement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          name: trimmedName,
+          clientUserId: `clickwrap:${trimmedEmail.toLowerCase()}`,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Server returned ${res.status}`);
+      }
+      const data = (await res.json()) as {
+        agreementId?: string | null;
+        agreementUrl?: string | null;
+        alreadyAgreed?: boolean;
+      };
+      setCompleteMessage(
+        data.alreadyAgreed
+          ? "DocuSign Click already has an acceptance recorded for this user."
+          : "DocuSign Click created an agreement record for this custom acceptance."
+      );
+      setStatus("complete");
+    } catch (err: unknown) {
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    }
+  }, [hasValidEmail, trimmedEmail, trimmedName]);
+
   useEffect(() => {
     void checkDocusignAuth();
   }, [checkDocusignAuth]);
@@ -224,7 +266,24 @@ export default function SignContractModal() {
     setDisplayMethod(null);
     setApproach(null);
     setError(null);
+    setCompleteMessage(null);
   };
+
+  const handleClickwrapComplete = useCallback(() => {
+    setCompleteMessage(
+      "DocuSign Click recorded the embedded Clickwrap acceptance."
+    );
+    setStatus("complete");
+  }, []);
+
+  const handleClickwrapDeclined = useCallback(() => {
+    setStatus("declined");
+  }, []);
+
+  const handleClickwrapError = useCallback((message: string) => {
+    setError(message);
+    setStatus("error");
+  }, []);
 
   return (
     <>
@@ -246,6 +305,7 @@ export default function SignContractModal() {
           setDisplayMethod(null);
           setApproach(null);
           setError(null);
+          setCompleteMessage(null);
         }}
         disabled={!isAuthenticated || checkingAuth}
         title={isAuthenticated ? "Review and sign" : "Connect to DocuSign first"}
@@ -314,6 +374,19 @@ export default function SignContractModal() {
                 />
               )}
 
+              {status === "idle" && modalStep === "clickwrap" && (
+                <ClickwrapStep
+                  signerName={signerName}
+                  signerEmail={signerEmail}
+                  hasValidEmail={hasValidEmail}
+                  onSignerNameChange={setSignerName}
+                  onSignerEmailChange={setSignerEmail}
+                  onComplete={handleClickwrapComplete}
+                  onDeclined={handleClickwrapDeclined}
+                  onError={handleClickwrapError}
+                />
+              )}
+
               {(status === "creating" || status === "loading") && (
                 <LoadingView status={status} />
               )}
@@ -328,13 +401,35 @@ export default function SignContractModal() {
               />
 
               {status === "complete" && (
-                <CompleteView onClose={closeModal} />
+                <CompleteView
+                  onClose={closeModal}
+                  title={
+                    approach === "clickwrap_embedded" ||
+                    approach === "clickwrap_custom"
+                      ? "Accepted successfully."
+                      : undefined
+                  }
+                  message={completeMessage ?? undefined}
+                />
               )}
 
               {status === "declined" && <DeclinedView onClose={closeModal} />}
 
               {status === "error" && (
-                <ErrorView error={error} canSign={canSign} onRetry={startSigning} />
+                <ErrorView
+                  error={error}
+                  canSign={canSign}
+                  onRetry={() => {
+                    if (approach === "clickwrap_custom") {
+                      void startClickwrapCustom();
+                    } else if (approach === "clickwrap_embedded") {
+                      setStatus("idle");
+                      setModalStep("clickwrap");
+                    } else {
+                      void startSigning();
+                    }
+                  }}
+                />
               )}
             </div>
 
@@ -358,18 +453,26 @@ export default function SignContractModal() {
 
                   if (!approach) {
                     setError(
-                      "Please choose Agree, Sign, or one Custom Review option."
+                      "Please choose Agree, Sign, Custom Review, or Clickwrap."
                     );
                     return;
                   }
                   setError(null);
-                  if (approach === "custom_redirect" || approach === "custom_embedded") {
+                  if (approach === "clickwrap_embedded") {
+                    setModalStep("clickwrap");
+                  } else if (
+                    approach === "custom_redirect" ||
+                    approach === "custom_embedded" ||
+                    approach === "clickwrap_custom"
+                  ) {
                     setModalStep("contract");
                   } else {
                     void startSigning();
                   }
                 }}
-                onSubmit={startSigning}
+                onSubmit={
+                  approach === "clickwrap_custom" ? startClickwrapCustom : startSigning
+                }
               />
             )}
           </div>

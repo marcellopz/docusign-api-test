@@ -70,6 +70,32 @@ export function ApproachStep({
             </button>
           </>
         )}
+        <button
+          className={`approach-card ${
+            approach === "clickwrap_embedded" ? "approach-card-active" : ""
+          }`}
+          onClick={() => onSelectApproach("clickwrap_embedded")}
+          type="button"
+        >
+          <strong>Clickwrap Widget</strong>
+          <span>
+            Show DocuSign Click&apos;s embedded acceptance widget and finish
+            from its callback.
+          </span>
+        </button>
+        <button
+          className={`approach-card ${
+            approach === "clickwrap_custom" ? "approach-card-active" : ""
+          }`}
+          onClick={() => onSelectApproach("clickwrap_custom")}
+          type="button"
+        >
+          <strong>Custom UI + Clickwrap</strong>
+          <span>
+            Review the contract here, then create a DocuSign Click agreement for
+            the accept action.
+          </span>
+        </button>
       </div>
       {error && <p className="form-error">{error}</p>}
     </div>

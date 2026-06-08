@@ -52,7 +52,9 @@ export function ContractStep({
           />
         </label>
       </div>
-      {approach === "custom_redirect" || approach === "custom_embedded" ? (
+      {approach === "custom_redirect" ||
+      approach === "custom_embedded" ||
+      approach === "clickwrap_custom" ? (
         <>
           <div className="pdf-review-frame">
             <iframe
@@ -66,6 +68,12 @@ export function ContractStep({
               Please review this contract in full. By clicking the next action
               below, you confirm you reviewed the document and want to proceed.
             </p>
+            {approach === "clickwrap_custom" && (
+              <p>
+                This path keeps the review experience in this app and records
+                the acceptance through DocuSign Click.
+              </p>
+            )}
           </div>
         </>
       ) : (

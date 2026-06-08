@@ -19,6 +19,16 @@ export function ModalFooter({
   onContinueStep,
   onSubmit,
 }: ModalFooterProps) {
+  if (modalStep === "clickwrap") {
+    return (
+      <div className="modal-footer">
+        <button className="secondary-btn" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="modal-footer">
       <button className="secondary-btn" onClick={onCancel}>
@@ -45,6 +55,8 @@ export function ModalFooter({
               ? "Agree & Continue"
               : approach === "custom_embedded"
                 ? "Agree & Sign In App"
+                : approach === "clickwrap_custom"
+                  ? "Accept with Clickwrap"
               : "Continue to Signature Fields"}
         </button>
       )}

@@ -322,6 +322,19 @@ body {
   background: var(--panel-soft);
 }
 
+.clickwrap-step p {
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+
+.clickwrap-container {
+  min-height: 320px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--panel-soft);
+}
+
 .modal-footer {
   display: flex;
   justify-content: flex-end;
@@ -449,6 +462,11 @@ body {
   .agreement-container {
     height: calc(100dvh - 190px);
     min-height: 420px;
+    border-radius: 8px;
+  }
+
+  .clickwrap-container {
+    min-height: 50dvh;
     border-radius: 8px;
   }
 

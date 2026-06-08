@@ -17,14 +17,20 @@ export function LoadingView({ status }: LoadingViewProps) {
 
 interface CompleteViewProps {
   onClose: () => void;
+  title?: string;
+  message?: string;
 }
 
-export function CompleteView({ onClose }: CompleteViewProps) {
+export function CompleteView({
+  onClose,
+  title = "Signed successfully.",
+  message = "Your agreement has been completed and recorded.",
+}: CompleteViewProps) {
   return (
     <div className="status-msg success">
       <div className="checkmark">✓</div>
-      <h3>Signed successfully.</h3>
-      <p>Your agreement has been completed and recorded.</p>
+      <h3>{title}</h3>
+      <p>{message}</p>
       <button className="primary-btn" onClick={onClose}>
         Done
       </button>

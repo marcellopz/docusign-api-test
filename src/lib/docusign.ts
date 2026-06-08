@@ -23,6 +23,7 @@ const {
 
 const JWT_LIFETIME_SECONDS = 3600;
 const TOKEN_SCOPES = ["signature", "impersonation"];
+const CLICK_TOKEN_SCOPES = ["click.manage", "click.send", "impersonation"];
 
 type DocusignErrorPayload = {
   error?: string;
@@ -61,12 +62,17 @@ function getPrivateKey(): Buffer {
   return fs.readFileSync(keyPath);
 }
 
-/** Cache the access token in module scope so we don't mint one per request. */
-let cachedToken: { token: string; expiresAt: number } | null = null;
+/** Cache access tokens by scope so eSignature and Click grants do not collide. */
+const cachedTokens = new Map<string, { token: string; expiresAt: number }>();
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getAccessToken(apiClient: any): Promise<string> {
+async function getAccessToken(
+  apiClient: any,
+  scopes: string[] = TOKEN_SCOPES
+): Promise<string> {
   const now = Date.now();
+  const cacheKey = scopes.join(" ");
+  const cachedToken = cachedTokens.get(cacheKey);
   if (cachedToken && cachedToken.expiresAt > now + 60_000) {
     return cachedToken.token;
   }
@@ -76,14 +82,14 @@ async function getAccessToken(apiClient: any): Promise<string> {
   const results = await apiClient.requestJWTUserToken(
     DOCUSIGN_INTEGRATION_KEY!,
     DOCUSIGN_USER_ID!,
-    TOKEN_SCOPES,
+    scopes,
     getPrivateKey(),
     JWT_LIFETIME_SECONDS
   );
 
   const accessToken = results.body.access_token as string;
   const expiresIn = (results.body.expires_in as number) ?? JWT_LIFETIME_SECONDS;
-  cachedToken = { token: accessToken, expiresAt: now + expiresIn * 1000 };
+  cachedTokens.set(cacheKey, { token: accessToken, expiresAt: now + expiresIn * 1000 });
   return accessToken;
 }
 
@@ -177,7 +183,103 @@ export type SigningApproach =
   | "agree"
   | "sign"
   | "custom_redirect"
-  | "custom_embedded";
+  | "custom_embedded"
+  | "clickwrap_embedded"
+  | "clickwrap_custom";
+
+export interface ClickwrapAgreementParams {
+  clientUserId: string;
+  email: string;
+  name: string;
+}
+
+export interface ClickwrapAgreementResult {
+  agreementId: string | null;
+  agreementUrl: string | null;
+  alreadyAgreed: boolean;
+  clickwrapId: string;
+  clientUserId: string;
+  status: string | null;
+}
+
+function getClickEnvironment(): string {
+  return (
+    process.env.NEXT_PUBLIC_DOCUSIGN_CLICK_ENVIRONMENT ??
+    "https://demo.docusign.net"
+  ).replace(/\/+$/, "");
+}
+
+export async function createClickwrapAgreement(
+  params: ClickwrapAgreementParams
+): Promise<ClickwrapAgreementResult> {
+  const clickwrapId = process.env.NEXT_PUBLIC_DOCUSIGN_CLICKWRAP_ID;
+  if (!clickwrapId || clickwrapId === "replace-with-clickwrap-id") {
+    throw new Error("Missing NEXT_PUBLIC_DOCUSIGN_CLICKWRAP_ID environment variable");
+  }
+
+  const tokenClient = new docusign.ApiClient();
+  const token = await getAccessToken(tokenClient, CLICK_TOKEN_SCOPES);
+  const response = await fetch(
+    `${getClickEnvironment()}/clickapi/v1/accounts/${DOCUSIGN_ACCOUNT_ID}/clickwraps/${clickwrapId}/agreements`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        clientUserId: params.clientUserId,
+        documentData: {
+          fullName: params.name,
+          email: params.email,
+          date: new Date().toISOString(),
+        },
+      }),
+    }
+  );
+
+  if (response.status === 200) {
+    return {
+      agreementId: null,
+      agreementUrl: null,
+      alreadyAgreed: true,
+      clickwrapId,
+      clientUserId: params.clientUserId,
+      status: "agreed",
+    };
+  }
+
+  const responseText = await response.text();
+  const result = responseText
+    ? (JSON.parse(responseText) as {
+        agreementId?: string;
+        agreementUrl?: string;
+        clickwrapId?: string;
+        clientUserId?: string;
+        status?: string;
+        errorCode?: string;
+        message?: string;
+      })
+    : null;
+
+  if (!response.ok) {
+    throw new Error(
+      result?.message ??
+        result?.errorCode ??
+        `DocuSign Click returned ${response.status}`
+    );
+  }
+
+  return {
+    agreementId: result?.agreementId ?? null,
+    agreementUrl: result?.agreementUrl ?? null,
+    alreadyAgreed: !result?.agreementUrl,
+    clickwrapId,
+    clientUserId: params.clientUserId,
+    status: result?.status ?? null,
+  };
+}
 
 /**
  * Create an envelope containing a single inline document with one SignHere tab

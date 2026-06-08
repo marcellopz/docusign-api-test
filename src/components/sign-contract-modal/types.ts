@@ -11,6 +11,8 @@ export type SigningApproach =
   | "agree"
   | "sign"
   | "custom_redirect"
-  | "custom_embedded";
+  | "custom_embedded"
+  | "clickwrap_embedded"
+  | "clickwrap_custom";
 export type ContentDisplayMethod = "pdf" | "html";
-export type ModalStep = "display" | "approach" | "contract";
+export type ModalStep = "display" | "approach" | "contract" | "clickwrap";
