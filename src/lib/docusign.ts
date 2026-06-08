@@ -173,31 +173,17 @@ export async function createEnvelope(signer: SignerInfo): Promise<string> {
   const apiClient = await getApiClient();
   const envelopesApi = new docusign.EnvelopesApi(apiClient);
 
-  const html = `
-    <html><body style="font-family: Arial, sans-serif; padding: 40px;">
-      <h2>Service Agreement</h2>
-      <p><em>A serious document with occasional personality.</em></p>
-      <p>This Agreement is entered into between Acme Inc. ("Company") and the
-      undersigned ("Client"). By signing below, the Client agrees to the terms
-      and conditions set forth in this document. This is legally binding, even if
-      we are all trying to stay emotionally calm.</p>
-      <p>1. Scope of services as described in Exhibit A (the useful part).</p>
-      <p>2. Payment terms: net 30 days, as foretold by accounting.</p>
-      <p>3. Term: 12 months from the effective date. Time is real.</p>
-      <br /><br />
-      <p>Signature: <span style="color:white;">/sign_here/</span></p>
-      <p>Date: /date_signed/</p>
-    </body></html>
-  `;
+  const pdfPath = path.resolve(process.cwd(), "contract.pdf");
+  const pdfBytes = fs.readFileSync(pdfPath);
 
   const document = docusign.Document.constructFromObject({
-    documentBase64: Buffer.from(html).toString("base64"),
+    documentBase64: pdfBytes.toString("base64"),
     name: "Service Agreement",
-    fileExtension: "html",
+    fileExtension: "pdf",
     documentId: "1",
   });
 
-  // AutoPlace anchors: DocuSign positions tabs wherever the anchor string appears.
+  // AutoPlace anchors: these markers must exist in contract.pdf text content.
   const signHere = docusign.SignHere.constructFromObject({
     anchorString: "/sign_here/",
     anchorUnits: "pixels",
