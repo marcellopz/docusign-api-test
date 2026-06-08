@@ -248,6 +248,47 @@ body {
   font-size: 0.9rem;
 }
 
+.approach-step h3 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.approach-step p {
+  margin: 0 0 14px;
+}
+
+.approach-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.approach-card {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.approach-card strong {
+  display: block;
+  margin-bottom: 6px;
+}
+
+.approach-card span {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.approach-card-active {
+  border-color: var(--indigo);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15);
+}
+
 .contract-preview .primary-btn {
   margin-top: 16px;
 }
@@ -368,6 +409,10 @@ body {
   }
 
   .signer-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .approach-options {
     grid-template-columns: 1fr;
   }
 

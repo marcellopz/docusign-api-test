@@ -15,6 +15,9 @@ type Status =
   | "declined"
   | "error";
 
+type SigningApproach = "agree" | "sign";
+type ModalStep = "approach" | "contract";
+
 const JS_BUNDLE = process.env.NEXT_PUBLIC_DOCUSIGN_JS_BUNDLE!;
 const INTEGRATION_KEY = process.env.NEXT_PUBLIC_DOCUSIGN_INTEGRATION_KEY!;
 
@@ -47,6 +50,8 @@ function loadDocuSignBundle(): Promise<void> {
 export default function SignContractModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
+  const [modalStep, setModalStep] = useState<ModalStep>("approach");
+  const [approach, setApproach] = useState<SigningApproach | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("Test Signer");
   const [signerEmail, setSignerEmail] = useState("test.signer@example.com");
@@ -95,6 +100,11 @@ export default function SignContractModal() {
   }, []);
 
   const startSigning = useCallback(async () => {
+    if (!approach) {
+      setStatus("idle");
+      setError("Please choose an approach before continuing.");
+      return;
+    }
     if (!trimmedName || !hasValidEmail) {
       setStatus("idle");
       setError("Please enter a valid name and email before signing.");
@@ -111,6 +121,7 @@ export default function SignContractModal() {
         body: JSON.stringify({
           email: trimmedEmail,
           name: trimmedName,
+          approach,
         }),
       });
       if (!res.ok) {
@@ -174,7 +185,7 @@ export default function SignContractModal() {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [hasValidEmail, trimmedEmail, trimmedName]);
+  }, [approach, hasValidEmail, trimmedEmail, trimmedName]);
 
   useEffect(() => {
     void checkDocusignAuth();
@@ -191,6 +202,8 @@ export default function SignContractModal() {
   const closeModal = () => {
     setOpen(false);
     setStatus("idle");
+    setModalStep("approach");
+    setApproach(null);
     setError(null);
   };
 
@@ -233,7 +246,13 @@ export default function SignContractModal() {
 
       <button
         className="primary-btn"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          setStatus("idle");
+          setModalStep("approach");
+          setApproach(null);
+          setError(null);
+        }}
         disabled={!isAuthenticated || checkingAuth}
         title={isAuthenticated ? "Review and sign" : "Connect to DocuSign first"}
       >
@@ -261,7 +280,39 @@ export default function SignContractModal() {
 
             <div className="modal-body">
               {/* idle: show contract preview + sign CTA */}
-              {status === "idle" && (
+              {status === "idle" && modalStep === "approach" && (
+                <div className="approach-step">
+                  <h3>Choose How You Want to Complete</h3>
+                  <p>
+                    Pick your preferred approach before reviewing the contract.
+                  </p>
+                  <div className="approach-options">
+                    <button
+                      className={`approach-card ${
+                        approach === "agree" ? "approach-card-active" : ""
+                      }`}
+                      onClick={() => setApproach("agree")}
+                      type="button"
+                    >
+                      <strong>Agree</strong>
+                      <span>Confirm acceptance and finish quickly.</span>
+                    </button>
+                    <button
+                      className={`approach-card ${
+                        approach === "sign" ? "approach-card-active" : ""
+                      }`}
+                      onClick={() => setApproach("sign")}
+                      type="button"
+                    >
+                      <strong>Sign</strong>
+                      <span>Fill required signature and initial fields.</span>
+                    </button>
+                  </div>
+                  {error && <p className="form-error">{error}</p>}
+                </div>
+              )}
+
+              {status === "idle" && modalStep === "contract" && (
                 <div className="contract-preview">
                   <div className="signer-fields">
                     <label className="form-field">
@@ -379,18 +430,36 @@ export default function SignContractModal() {
                 <button className="secondary-btn" onClick={closeModal}>
                   Cancel
                 </button>
-                <button
-                  className="primary-btn"
-                  onClick={startSigning}
-                  disabled={!canSign}
-                  title={
-                    isAuthenticated
-                      ? "Enter name/email to start signing"
-                      : "Connect to DocuSign first"
-                  }
-                >
-                  Agree &amp; Confirm
-                </button>
+                {modalStep === "approach" ? (
+                  <button
+                    className="primary-btn"
+                    onClick={() => {
+                      if (!approach) {
+                        setError("Please choose Agree or Sign.");
+                        return;
+                      }
+                      setError(null);
+                      setModalStep("contract");
+                    }}
+                  >
+                    Continue
+                  </button>
+                ) : (
+                  <button
+                    className="primary-btn"
+                    onClick={startSigning}
+                    disabled={!canSign}
+                    title={
+                      isAuthenticated
+                        ? "Enter name/email to continue"
+                        : "Connect to DocuSign first"
+                    }
+                  >
+                    {approach === "agree"
+                      ? "Agree & Confirm"
+                      : "Continue to Signature Fields"}
+                  </button>
+                )}
               </div>
             )}
           </div>

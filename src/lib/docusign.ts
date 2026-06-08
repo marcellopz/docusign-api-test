@@ -31,6 +31,14 @@ type DocusignErrorPayload = {
   message?: string;
 };
 
+function getPdfPageCount(pdfBytes: Buffer): number {
+  // Lightweight page-count heuristic for standard PDFs.
+  // Counts "/Type /Page" objects and falls back to page 1 if unknown.
+  const pdfText = pdfBytes.toString("latin1");
+  const matches = pdfText.match(/\/Type\s*\/Page\b/g);
+  return matches?.length && matches.length > 0 ? matches.length : 1;
+}
+
 /** Read the RSA private key PEM from disk. */
 function getPrivateKey(): Buffer {
   if (DOCUSIGN_RSA_PRIVATE_KEY) {
@@ -164,17 +172,23 @@ export interface SignerInfo {
   clientUserId: string;
 }
 
+export type SigningApproach = "agree" | "sign";
+
 /**
  * Create an envelope containing a single inline document with one SignHere tab
  * placed via AutoPlace anchor text (the string "/sign_here/" in the document).
  * Returns the envelopeId.
  */
-export async function createEnvelope(signer: SignerInfo): Promise<string> {
+export async function createEnvelope(
+  signer: SignerInfo,
+  approach: SigningApproach = "sign"
+): Promise<string> {
   const apiClient = await getApiClient();
   const envelopesApi = new docusign.EnvelopesApi(apiClient);
 
   const pdfPath = path.resolve(process.cwd(), "contract.pdf");
   const pdfBytes = fs.readFileSync(pdfPath);
+  const lastPageNumber = String(getPdfPageCount(pdfBytes));
 
   const document = docusign.Document.constructFromObject({
     documentBase64: pdfBytes.toString("base64"),
@@ -183,16 +197,20 @@ export async function createEnvelope(signer: SignerInfo): Promise<string> {
     documentId: "1",
   });
 
-  // AutoPlace anchors: these markers must exist in contract.pdf text content.
+  // Use fixed coordinates so the "sign" path always shows a signature field,
+  // even when the PDF does not contain text anchors.
   const signHere = docusign.SignHere.constructFromObject({
-    anchorString: "/sign_here/",
-    anchorUnits: "pixels",
-    anchorXOffset: "0",
-    anchorYOffset: "0",
+    documentId: "1",
+    pageNumber: lastPageNumber,
+    xPosition: "100",
+    yPosition: "650",
+    required: "true",
   });
   const dateSigned = docusign.DateSigned.constructFromObject({
-    anchorString: "/date_signed/",
-    anchorUnits: "pixels",
+    documentId: "1",
+    pageNumber: lastPageNumber,
+    xPosition: "340",
+    yPosition: "655",
   });
 
   const recipientSigner = docusign.Signer.constructFromObject({
@@ -203,7 +221,8 @@ export async function createEnvelope(signer: SignerInfo): Promise<string> {
     // clientUserId is the critical flag for EMBEDDED signing.
     clientUserId: signer.clientUserId,
     tabs: docusign.Tabs.constructFromObject({
-      signHereTabs: [signHere],
+      signHereTabs: approach === "sign" ? [signHere] : [],
+      initialHereTabs: [],
       dateSignedTabs: [dateSigned],
     }),
   });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createEnvelope,
   createRecipientView,
+  type SigningApproach,
   type SignerInfo,
 } from "@/lib/docusign";
 
@@ -85,6 +86,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
     const email: string = body.email ?? "test.signer@example.com";
     const name: string = body.name ?? "Test Signer";
+    const approach: SigningApproach =
+      body.approach === "agree" ? "agree" : "sign";
 
     // clientUserId only needs to be unique per envelope. A real app would use
     // your internal user id or a generated UUID tied to the session.
@@ -94,7 +97,7 @@ export async function POST(req: NextRequest) {
       clientUserId: body.clientUserId ?? "1001",
     };
 
-    const envelopeId = await createEnvelope(signer);
+    const envelopeId = await createEnvelope(signer, approach);
 
     const appOrigin = process.env.NEXT_PUBLIC_APP_ORIGIN!;
     const appsOrigin = process.env.NEXT_PUBLIC_DOCUSIGN_APPS_ORIGIN!;
