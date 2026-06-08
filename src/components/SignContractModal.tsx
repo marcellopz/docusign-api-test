@@ -5,18 +5,23 @@ import type {
   DocuSignSessionEndEvent,
   DocuSignSigning,
 } from "@/lib/docusign-js";
-
-type Status =
-  | "idle"
-  | "creating" // calling our API to create envelope + signing URL
-  | "loading" // loading DocuSign JS + mounting
-  | "signing" // focused view is mounted, user is signing
-  | "complete"
-  | "declined"
-  | "error";
-
-type SigningApproach = "agree" | "sign";
-type ModalStep = "approach" | "contract";
+import { AuthControls } from "@/components/sign-contract-modal/AuthControls";
+import { DisplayMethodStep } from "@/components/sign-contract-modal/DisplayMethodStep";
+import { ApproachStep } from "@/components/sign-contract-modal/ApproachStep";
+import { ContractStep } from "@/components/sign-contract-modal/ContractStep";
+import { ModalFooter } from "@/components/sign-contract-modal/ModalFooter";
+import {
+  CompleteView,
+  DeclinedView,
+  ErrorView,
+  LoadingView,
+} from "@/components/sign-contract-modal/SigningStatusViews";
+import type {
+  ContentDisplayMethod,
+  ModalStep,
+  SigningApproach,
+  Status,
+} from "@/components/sign-contract-modal/types";
 
 const JS_BUNDLE = process.env.NEXT_PUBLIC_DOCUSIGN_JS_BUNDLE!;
 const INTEGRATION_KEY = process.env.NEXT_PUBLIC_DOCUSIGN_INTEGRATION_KEY!;
@@ -50,7 +55,9 @@ function loadDocuSignBundle(): Promise<void> {
 export default function SignContractModal() {
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>("idle");
-  const [modalStep, setModalStep] = useState<ModalStep>("approach");
+  const [modalStep, setModalStep] = useState<ModalStep>("display");
+  const [displayMethod, setDisplayMethod] =
+    useState<ContentDisplayMethod | null>(null);
   const [approach, setApproach] = useState<SigningApproach | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [signerName, setSignerName] = useState("Test Signer");
@@ -100,6 +107,11 @@ export default function SignContractModal() {
   }, []);
 
   const startSigning = useCallback(async () => {
+    if (!displayMethod) {
+      setStatus("idle");
+      setError("Please choose a content display method before continuing.");
+      return;
+    }
     if (!approach) {
       setStatus("idle");
       setError("Please choose an approach before continuing.");
@@ -122,6 +134,7 @@ export default function SignContractModal() {
           email: trimmedEmail,
           name: trimmedName,
           approach,
+          displayMethod,
         }),
       });
       if (!res.ok) {
@@ -129,6 +142,11 @@ export default function SignContractModal() {
         throw new Error(data.error || `Server returned ${res.status}`);
       }
       const { signingUrl } = (await res.json()) as { signingUrl: string };
+
+      if (approach === "custom_redirect") {
+        window.location.assign(signingUrl);
+        return;
+      }
 
       // 2. Load DocuSign JS and initialize.
       setStatus("loading");
@@ -185,7 +203,7 @@ export default function SignContractModal() {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Something went wrong");
     }
-  }, [approach, hasValidEmail, trimmedEmail, trimmedName]);
+  }, [approach, displayMethod, hasValidEmail, trimmedEmail, trimmedName]);
 
   useEffect(() => {
     void checkDocusignAuth();
@@ -202,54 +220,30 @@ export default function SignContractModal() {
   const closeModal = () => {
     setOpen(false);
     setStatus("idle");
-    setModalStep("approach");
+    setModalStep("display");
+    setDisplayMethod(null);
     setApproach(null);
     setError(null);
   };
 
   return (
     <>
-      <div className="docusign-auth-row">
-        <div
-          className={`auth-pill ${
-            authChecked && isAuthenticated ? "auth-pill-on" : "auth-pill-off"
-          }`}
-        >
-          <span className="auth-dot" />
-          {authChecked
-            ? isAuthenticated
-              ? "DocuSign Connected"
-              : "DocuSign Not Connected"
-            : "Checking DocuSign..."}
-        </div>
-
-        <button
-          className="secondary-btn"
-          onClick={() => void checkDocusignAuth()}
-          disabled={checkingAuth}
-        >
-          {checkingAuth ? "Checking..." : "Check DocuSign Login"}
-        </button>
-
-        {!isAuthenticated && consentUrl && (
-          <a
-            className="secondary-btn"
-            href={consentUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Connect DocuSign
-          </a>
-        )}
-      </div>
-      <p className="auth-message">{authMessage ?? " "}</p>
+      <AuthControls
+        authChecked={authChecked}
+        isAuthenticated={isAuthenticated}
+        authMessage={authMessage}
+        checkingAuth={checkingAuth}
+        consentUrl={consentUrl}
+        onCheckAuth={() => void checkDocusignAuth()}
+      />
 
       <button
         className="primary-btn"
         onClick={() => {
           setOpen(true);
           setStatus("idle");
-          setModalStep("approach");
+          setModalStep("display");
+          setDisplayMethod(null);
           setApproach(null);
           setError(null);
         }}
@@ -280,106 +274,48 @@ export default function SignContractModal() {
 
             <div className="modal-body">
               {/* idle: show contract preview + sign CTA */}
+              {status === "idle" && modalStep === "display" && (
+                <DisplayMethodStep
+                  displayMethod={displayMethod}
+                  error={error}
+                  onSelectDisplayMethod={(method) => {
+                    setDisplayMethod(method);
+                    if (
+                      method === "html" &&
+                      (approach === "custom_redirect" ||
+                        approach === "custom_embedded")
+                    ) {
+                      setApproach(null);
+                    }
+                  }}
+                />
+              )}
+
               {status === "idle" && modalStep === "approach" && (
-                <div className="approach-step">
-                  <h3>Choose How You Want to Complete</h3>
-                  <p>
-                    Pick your preferred approach before reviewing the contract.
-                  </p>
-                  <div className="approach-options">
-                    <button
-                      className={`approach-card ${
-                        approach === "agree" ? "approach-card-active" : ""
-                      }`}
-                      onClick={() => setApproach("agree")}
-                      type="button"
-                    >
-                      <strong>Agree</strong>
-                      <span>Confirm acceptance and finish quickly.</span>
-                    </button>
-                    <button
-                      className={`approach-card ${
-                        approach === "sign" ? "approach-card-active" : ""
-                      }`}
-                      onClick={() => setApproach("sign")}
-                      type="button"
-                    >
-                      <strong>Sign</strong>
-                      <span>Fill required signature and initial fields.</span>
-                    </button>
-                  </div>
-                  {error && <p className="form-error">{error}</p>}
-                </div>
+                <ApproachStep
+                  approach={approach}
+                  displayMethod={displayMethod}
+                  error={error}
+                  onSelectApproach={setApproach}
+                />
               )}
 
               {status === "idle" && modalStep === "contract" && (
-                <div className="contract-preview">
-                  <div className="signer-fields">
-                    <label className="form-field">
-                      <span>Name</span>
-                      <input
-                        className="modal-input"
-                        type="text"
-                        value={signerName}
-                        onChange={(e) => setSignerName(e.target.value)}
-                        placeholder="Jane Doe"
-                        autoComplete="name"
-                      />
-                    </label>
-                    <label className="form-field">
-                      <span>Email</span>
-                      <input
-                        className="modal-input"
-                        type="email"
-                        value={signerEmail}
-                        onChange={(e) => setSignerEmail(e.target.value)}
-                        placeholder="jane@example.com"
-                        autoComplete="email"
-                      />
-                    </label>
-                  </div>
-                  <p>
-                    This Agreement is entered into between Acme Inc.
-                    (&quot;Company&quot;) and you (&quot;Client&quot;). By
-                    signing, you agree to the terms below. This remains legally
-                    binding, even with a sense of humor.
-                  </p>
-                  <ol>
-                    <li>
-                      Scope of services as described in Exhibit A (the useful
-                      part).
-                    </li>
-                    <li>
-                      Payment terms: net 30 days, as foretold by accounting.
-                    </li>
-                    <li>
-                      Term: 12 months from the effective date. Time is real.
-                    </li>
-                  </ol>
-                  {!isAuthenticated && (
-                    <p className="auth-hint">
-                      Connect to DocuSign first. The sign button unlocks once
-                      authentication is confirmed.
-                    </p>
-                  )}
-                  {!hasValidEmail && (
-                    <p className="auth-hint">
-                      Please enter a valid email to continue.
-                    </p>
-                  )}
-                  {error && <p className="form-error">{error}</p>}
-                </div>
+                <ContractStep
+                  signerName={signerName}
+                  signerEmail={signerEmail}
+                  approach={approach}
+                  displayMethod={displayMethod}
+                  isAuthenticated={isAuthenticated}
+                  hasValidEmail={hasValidEmail}
+                  error={error}
+                  onSignerNameChange={setSignerName}
+                  onSignerEmailChange={setSignerEmail}
+                />
               )}
 
               {(status === "creating" || status === "loading") && (
-                <div className="status-msg">
-                  <div className="spinner" />
-                  <p>
-                    {status === "creating"
-                      ? "Preparing your document. This is the thrilling part."
-                      : "Loading signing experience. Please contain excitement."}
-                  </p>
-                </div>
+                <LoadingView status={status} />
               )}
 
               {/* The focused-view signing UI mounts into this div */}
@@ -392,75 +328,49 @@ export default function SignContractModal() {
               />
 
               {status === "complete" && (
-                <div className="status-msg success">
-                  <div className="checkmark">✓</div>
-                  <h3>Signed successfully.</h3>
-                  <p>Your agreement has been completed and recorded.</p>
-                  <button className="primary-btn" onClick={closeModal}>
-                    Done
-                  </button>
-                </div>
+                <CompleteView onClose={closeModal} />
               )}
 
-              {status === "declined" && (
-                <div className="status-msg">
-                  <p>You declined to sign the document. Noted.</p>
-                  <button className="primary-btn" onClick={closeModal}>
-                    Close
-                  </button>
-                </div>
-              )}
+              {status === "declined" && <DeclinedView onClose={closeModal} />}
 
               {status === "error" && (
-                <div className="status-msg error">
-                  <p>{error ?? "An error occurred. Bold choice."}</p>
-                  <button
-                    className="primary-btn"
-                    onClick={startSigning}
-                    disabled={!canSign}
-                  >
-                    Try again
-                  </button>
-                </div>
+                <ErrorView error={error} canSign={canSign} onRetry={startSigning} />
               )}
             </div>
 
             {status === "idle" && (
-              <div className="modal-footer">
-                <button className="secondary-btn" onClick={closeModal}>
-                  Cancel
-                </button>
-                {modalStep === "approach" ? (
-                  <button
-                    className="primary-btn"
-                    onClick={() => {
-                      if (!approach) {
-                        setError("Please choose Agree or Sign.");
-                        return;
-                      }
-                      setError(null);
-                      setModalStep("contract");
-                    }}
-                  >
-                    Continue
-                  </button>
-                ) : (
-                  <button
-                    className="primary-btn"
-                    onClick={startSigning}
-                    disabled={!canSign}
-                    title={
-                      isAuthenticated
-                        ? "Enter name/email to continue"
-                        : "Connect to DocuSign first"
+              <ModalFooter
+                modalStep={modalStep}
+                approach={approach}
+                canSign={canSign}
+                isAuthenticated={isAuthenticated}
+                onCancel={closeModal}
+                onContinueStep={() => {
+                  if (modalStep === "display") {
+                    if (!displayMethod) {
+                      setError("Please choose PDF or HTML.");
+                      return;
                     }
-                  >
-                    {approach === "agree"
-                      ? "Agree & Confirm"
-                      : "Continue to Signature Fields"}
-                  </button>
-                )}
-              </div>
+                    setError(null);
+                    setModalStep("approach");
+                    return;
+                  }
+
+                  if (!approach) {
+                    setError(
+                      "Please choose Agree, Sign, or one Custom Review option."
+                    );
+                    return;
+                  }
+                  setError(null);
+                  if (approach === "custom_redirect" || approach === "custom_embedded") {
+                    setModalStep("contract");
+                  } else {
+                    void startSigning();
+                  }
+                }}
+                onSubmit={startSigning}
+              />
             )}
           </div>
         </div>

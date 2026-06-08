@@ -172,7 +172,12 @@ export interface SignerInfo {
   clientUserId: string;
 }
 
-export type SigningApproach = "agree" | "sign";
+export type ContentDisplayMethod = "pdf" | "html";
+export type SigningApproach =
+  | "agree"
+  | "sign"
+  | "custom_redirect"
+  | "custom_embedded";
 
 /**
  * Create an envelope containing a single inline document with one SignHere tab
@@ -181,37 +186,85 @@ export type SigningApproach = "agree" | "sign";
  */
 export async function createEnvelope(
   signer: SignerInfo,
-  approach: SigningApproach = "sign"
+  approach: SigningApproach = "sign",
+  displayMethod: ContentDisplayMethod = "pdf"
 ): Promise<string> {
   const apiClient = await getApiClient();
   const envelopesApi = new docusign.EnvelopesApi(apiClient);
 
-  const pdfPath = path.resolve(process.cwd(), "contract.pdf");
-  const pdfBytes = fs.readFileSync(pdfPath);
-  const lastPageNumber = String(getPdfPageCount(pdfBytes));
+  let document: unknown;
+  let signHereTabs: unknown[] = [];
+  let dateSignedTabs: unknown[] = [];
 
-  const document = docusign.Document.constructFromObject({
-    documentBase64: pdfBytes.toString("base64"),
-    name: "Service Agreement",
-    fileExtension: "pdf",
-    documentId: "1",
-  });
+  if (displayMethod === "html") {
+    const htmlPath = path.resolve(process.cwd(), "public", "placeholder-contract.html");
+    let html = fs.readFileSync(htmlPath, "utf8");
+    if (approach !== "agree") {
+      html = html.replace(
+        "</body>",
+        '<p>Signature: <span style="color:white;">/sign_here_html/</span></p><p>Date: <span style="color:white;">/date_signed_html/</span></p></body>'
+      );
+    }
 
-  // Use fixed coordinates so the "sign" path always shows a signature field,
-  // even when the PDF does not contain text anchors.
-  const signHere = docusign.SignHere.constructFromObject({
-    documentId: "1",
-    pageNumber: lastPageNumber,
-    xPosition: "100",
-    yPosition: "650",
-    required: "true",
-  });
-  const dateSigned = docusign.DateSigned.constructFromObject({
-    documentId: "1",
-    pageNumber: lastPageNumber,
-    xPosition: "340",
-    yPosition: "655",
-  });
+    document = docusign.Document.constructFromObject({
+      documentBase64: Buffer.from(html, "utf8").toString("base64"),
+      name: "Service Agreement",
+      fileExtension: "html",
+      documentId: "1",
+    });
+
+    if (approach !== "agree") {
+      signHereTabs = [
+        docusign.SignHere.constructFromObject({
+          anchorString: "/sign_here_html/",
+          anchorUnits: "pixels",
+          anchorXOffset: "0",
+          anchorYOffset: "0",
+          required: "true",
+        }),
+      ];
+      dateSignedTabs = [
+        docusign.DateSigned.constructFromObject({
+          anchorString: "/date_signed_html/",
+          anchorUnits: "pixels",
+          anchorXOffset: "0",
+          anchorYOffset: "0",
+        }),
+      ];
+    }
+  } else {
+    const pdfPath = path.resolve(process.cwd(), "contract.pdf");
+    const pdfBytes = fs.readFileSync(pdfPath);
+    const lastPageNumber = String(getPdfPageCount(pdfBytes));
+
+    document = docusign.Document.constructFromObject({
+      documentBase64: pdfBytes.toString("base64"),
+      name: "Service Agreement",
+      fileExtension: "pdf",
+      documentId: "1",
+    });
+
+    if (approach !== "agree") {
+      // Use fixed coordinates so the "sign" path always shows a signature field.
+      signHereTabs = [
+        docusign.SignHere.constructFromObject({
+          documentId: "1",
+          pageNumber: lastPageNumber,
+          xPosition: "100",
+          yPosition: "650",
+          required: "true",
+        }),
+      ];
+      dateSignedTabs = [
+        docusign.DateSigned.constructFromObject({
+          documentId: "1",
+          pageNumber: lastPageNumber,
+          xPosition: "340",
+          yPosition: "655",
+        }),
+      ];
+    }
+  }
 
   const recipientSigner = docusign.Signer.constructFromObject({
     email: signer.email,
@@ -221,9 +274,9 @@ export async function createEnvelope(
     // clientUserId is the critical flag for EMBEDDED signing.
     clientUserId: signer.clientUserId,
     tabs: docusign.Tabs.constructFromObject({
-      signHereTabs: approach === "sign" ? [signHere] : [],
+      signHereTabs,
       initialHereTabs: [],
-      dateSignedTabs: [dateSigned],
+      dateSignedTabs,
     }),
   });
 
